@@ -1,6 +1,6 @@
-# Simon Says Game with High Score System
+# Simon Says Game
 
-A modern implementation of the classic Simon Says memory game with an integrated high score system. This project combines hardware and software to create an engaging gaming experience with online score tracking.
+A modern implementation of the classic Simon Says memory game. This project uses an Arduino UNO to create an engaging memory game with lights and sounds.
 
 ## Features
 
@@ -9,76 +9,65 @@ A modern implementation of the classic Simon Says memory game with an integrated
   - Memory Mode: Single player mode where you need to remember and repeat sequences
   - Battle Mode: Two-player mode where players take turns adding to the sequence
 - Easter Egg: Hidden BeeGees music mode
-- WiFi connectivity for online score tracking
-- Real-time high score display through web interface
-- Modern, responsive web dashboard for viewing scores
+- Interactive LED and sound feedback
+- Supports up to 13 rounds of gameplay
 
 ## Hardware Requirements
 
-- ESP8266 (NodeMCU or similar)
-- 4 LEDs (Red, Green, Blue, Yellow)
+- Arduino UNO
+- 4 LEDs:
+  - 1x Red LED
+  - 1x Blue LED
+  - 1x Green LED
+  - 1x Yellow LED
 - 4 Push Buttons
-- 2 Buzzers
+- 1 Piezo Buzzer
+- 4x 220Ω Resistors (for LEDs)
+- 4x 10kΩ Resistors (for buttons)
 - Jumper Wires
-- Breadboard (optional)
+- Breadboard
 
 ## Pin Connections
 
 ```
 LED Connections:
-- Red LED: Pin 10
-- Green LED: Pin 3
-- Blue LED: Pin 13
-- Yellow LED: Pin 5
+- Red LED: Pin 13
+- Green LED: Pin 12
+- Blue LED: Pin 11
+- Yellow LED: Pin 10
 
 Button Connections:
 - Red Button: Pin 9
-- Green Button: Pin 2
-- Blue Button: Pin 12
+- Green Button: Pin 8
+- Blue Button: Pin 7
 - Yellow Button: Pin 6
 
-Buzzer Connections:
-- Buzzer 1: Pin 4
-- Buzzer 2: Pin 7
+Buzzer Connection:
+- Buzzer: Pin 5
 ```
 
-## Software Requirements
+## Wiring Instructions
 
-- Arduino IDE
-- Required Libraries:
-  - ESP8266WiFi
-  - ESP8266HTTPClient
-  - ArduinoJson
+1. LED Setup:
+   - Connect the anode (longer leg) of each LED through a 220Ω resistor to its corresponding Arduino pin
+   - Connect all LED cathodes (shorter legs) to GND
 
-## Setup Instructions
+2. Button Setup:
+   - Connect one side of each button to its corresponding Arduino pin
+   - Connect the other side of each button to GND
+   - Connect a 10kΩ pull-up resistor from each button pin to 5V
 
-1. Hardware Setup:
-   - Connect the LEDs, buttons, and buzzers according to the pin connections above
-   - Make sure to use appropriate resistors for the LEDs
+3. Buzzer Setup:
+   - Connect the positive (red) wire of the buzzer to pin 5
+   - Connect the negative (black) wire to GND
 
-2. Software Setup:
-   - Install Arduino IDE
-   - Install required libraries through Arduino Library Manager
-   - Open `Base.c` in Arduino IDE
-   - Update WiFi credentials in the code:
-     ```cpp
-     const char* ssid = "YOUR_WIFI_SSID";
-     const char* password = "YOUR_WIFI_PASSWORD";
-     const char* serverUrl = "http://YOUR_SERVER_IP:5000/api/scores";
-     ```
-   - Upload the code to your ESP8266
+## Software Setup
 
-3. Server Setup:
-   - Install Python 3.x
-   - Install required Python packages:
-     ```bash
-     pip install -r requirements.txt
-     ```
-   - Run the Flask server:
-     ```bash
-     python app.py
-     ```
-   - Access the high scores dashboard at `http://localhost:5000`
+1. Install Arduino IDE from [arduino.cc](https://www.arduino.cc/en/software)
+2. Open `Base.c` in Arduino IDE
+3. Select "Arduino UNO" from Tools > Board menu
+4. Select the correct COM port from Tools > Port menu
+5. Click the Upload button to program the Arduino
 
 ## Game Modes
 
@@ -100,31 +89,22 @@ Buzzer Connections:
 - Hold the yellow button during startup to activate BeeGees mode
 - Watch the LEDs light up in sequence while listening to the BeeGees melody
 
-## High Score System
-
-- Scores are automatically uploaded when winning the game
-- View top scores in real-time through the web dashboard
-- Scores include:
-  - Player name
-  - Score (number of rounds completed)
-  - Date and time of achievement
-
 ## Troubleshooting
 
-1. WiFi Connection Issues:
-   - Verify WiFi credentials
-   - Check if ESP8266 is within range of the network
-   - Ensure server is running and accessible
+1. LEDs not lighting up:
+   - Check LED polarity (longer leg should go to Arduino pin through resistor)
+   - Verify resistor connections
+   - Test different pins
 
-2. Hardware Issues:
-   - Verify all connections are secure
-   - Check if LEDs are properly connected with resistors
-   - Ensure buttons are properly connected with pull-up resistors
+2. Buttons not responding:
+   - Verify button connections
+   - Check pull-up resistor connections
+   - Test button continuity
 
-3. Server Issues:
-   - Check if Flask server is running
-   - Verify port 5000 is not in use
-   - Check server logs for error messages
+3. No sound:
+   - Check buzzer polarity
+   - Try different pins
+   - Verify buzzer is not damaged
 
 ## Contributing
 
@@ -137,5 +117,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 - Original Simon Says game code by SparkFun Electronics
-- Modified and enhanced with WiFi capabilities and high score system
-- Web interface built with Flask and Bootstrap 
+- Modified for Arduino UNO with improved game modes 

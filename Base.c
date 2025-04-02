@@ -29,9 +29,7 @@
  Visit http://www.arduino.cc to learn about the Arduino.
  */
 
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#include <ArduinoJson.h>
+#include <Arduino.h>
 
 /*************************************************
 * Public Constants
@@ -133,20 +131,20 @@
 #define CHOICE_BLUE (1 << 2)
 #define CHOICE_YELLOW   (1 << 3)
 
-#define LED_RED     10
-#define LED_GREEN   3
-#define LED_BLUE    13
-#define LED_YELLOW  5
+// Updated pin definitions to match the wiring diagram
+#define LED_RED     13    // Changed to match diagram
+#define LED_GREEN   12    // Changed to match diagram
+#define LED_BLUE    11    // Changed to match diagram
+#define LED_YELLOW  10    // Changed to match diagram
 
-// Button pin definitions
-#define BUTTON_RED    9
-#define BUTTON_GREEN  2
-#define BUTTON_BLUE   12
-#define BUTTON_YELLOW 6
+// Button pin definitions updated to match diagram
+#define BUTTON_RED    9     // Matches diagram
+#define BUTTON_GREEN  8     // Changed to match diagram
+#define BUTTON_BLUE   7     // Changed to match diagram
+#define BUTTON_YELLOW 6     // Changed to match diagram
 
-// Buzzer pin definitions
-#define BUZZER1  4
-#define BUZZER2  7
+// Buzzer pin definition updated to match diagram
+#define BUZZER  5     // Single buzzer on pin 5
 
 // Define game parameters
 #define ROUNDS_TO_WIN      13 //Number of rounds to succesfully remember before you win. 13 is do-able.
@@ -157,19 +155,15 @@
 #define MODE_BEEGEES 2
 
 // Game state variables
-byte gameMode = MODE_MEMORY; //By default, let's play the memory game
-byte gameBoard[32]; //Contains the combination of buttons as we advance
-byte gameRound = 0; //Counts the number of succesful rounds the player has made it through
-
-// WiFi credentials
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverUrl = "http://YOUR_SERVER_IP:5000/api/scores";
+byte gameMode = MODE_MEMORY;
+byte gameBoard[32];
+byte gameRound = 0;
 
 void setup()
 {
-  //Setup hardware inputs/outputs. These pins are defined in the hardware_versions header file
-
+  // Initialize Serial for debugging
+  Serial.begin(9600);
+  
   //Enable pull ups on inputs
   pinMode(BUTTON_RED, INPUT_PULLUP);
   pinMode(BUTTON_GREEN, INPUT_PULLUP);
@@ -181,42 +175,23 @@ void setup()
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_YELLOW, OUTPUT);
 
-  pinMode(BUZZER1, OUTPUT);
-  pinMode(BUZZER2, OUTPUT);
+  pinMode(BUZZER, OUTPUT);
 
   //Mode checking
-  gameMode = MODE_MEMORY; // By default, we're going to play the memory game
+  gameMode = MODE_MEMORY;
 
-  // Check to see if the lower right button is pressed
   if (checkButton() == CHOICE_YELLOW) play_beegees();
 
-  // Check to see if upper right button is pressed
   if (checkButton() == CHOICE_GREEN)
   {
-    gameMode = MODE_BATTLE; //Put game into battle mode
-
-    //Turn on the upper right (green) LED
+    gameMode = MODE_BATTLE;
     setLEDs(CHOICE_GREEN);
     toner(CHOICE_GREEN, 150);
-
-    setLEDs(CHOICE_RED | CHOICE_BLUE | CHOICE_YELLOW); // Turn on the other LEDs until you release button
-
-    while(checkButton() != CHOICE_NONE) ; // Wait for user to stop pressing button
-
-    //Now do nothing. Battle mode will be serviced in the main routine
+    setLEDs(CHOICE_RED | CHOICE_BLUE | CHOICE_YELLOW);
+    while(checkButton() != CHOICE_NONE) ;
   }
 
-  // Initialize WiFi
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\nWiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  play_winner(); // After setup is complete, say hello to the world
+  play_winner();
 }
 
 void loop()
@@ -409,46 +384,39 @@ byte checkButton(void)
 // Yellow, lower right: 784Hz - 1.276ms - 0.638ms pulse
 void toner(byte which, int buzz_length_ms)
 {
-  setLEDs(which); //Turn on a given LED
+  setLEDs(which);
 
-  //Play the sound associated with the given LED
   switch(which) 
   {
   case CHOICE_RED:
-    buzz_sound(buzz_length_ms, 1136); 
+    tone(BUZZER, NOTE_A4, buzz_length_ms);
     break;
   case CHOICE_GREEN:
-    buzz_sound(buzz_length_ms, 568); 
+    tone(BUZZER, NOTE_A5, buzz_length_ms);
     break;
   case CHOICE_BLUE:
-    buzz_sound(buzz_length_ms, 851); 
+    tone(BUZZER, NOTE_D5, buzz_length_ms);
     break;
   case CHOICE_YELLOW:
-    buzz_sound(buzz_length_ms, 638); 
+    tone(BUZZER, NOTE_G5, buzz_length_ms);
     break;
   }
 
-  setLEDs(CHOICE_OFF); // Turn off all LEDs
+  delay(buzz_length_ms);
+  noTone(BUZZER);
+  setLEDs(CHOICE_OFF);
 }
 
 // Toggle buzzer every buzz_delay_us, for a duration of buzz_length_ms.
 void buzz_sound(int buzz_length_ms, int buzz_delay_us)
 {
-  // Convert total play time from milliseconds to microseconds
   long buzz_length_us = buzz_length_ms * (long)1000;
-
-  // Loop until the remaining play time is less than a single buzz_delay_us
   while (buzz_length_us > (buzz_delay_us * 2))
   {
-    buzz_length_us -= buzz_delay_us * 2; //Decrease the remaining play time
-
-    // Toggle the buzzer at various speeds
-    digitalWrite(BUZZER1, LOW);
-    digitalWrite(BUZZER2, HIGH);
+    buzz_length_us -= buzz_delay_us * 2;
+    digitalWrite(BUZZER, HIGH);
     delayMicroseconds(buzz_delay_us);
-
-    digitalWrite(BUZZER1, HIGH);
-    digitalWrite(BUZZER2, LOW);
+    digitalWrite(BUZZER, LOW);
     delayMicroseconds(buzz_delay_us);
   }
 }
@@ -475,12 +443,10 @@ void winner_sound(void)
   {
     for (byte y = 0 ; y < 3 ; y++)
     {
-      digitalWrite(BUZZER2, HIGH);
-      digitalWrite(BUZZER1, LOW);
+      digitalWrite(BUZZER, HIGH);
       delayMicroseconds(x);
 
-      digitalWrite(BUZZER2, LOW);
-      digitalWrite(BUZZER1, HIGH);
+      digitalWrite(BUZZER, LOW);
       delayMicroseconds(x);
     }
   }
@@ -554,20 +520,20 @@ void play_beegees()
 
   delay(1000); // Wait a second before playing song
 
-  digitalWrite(BUZZER1, LOW); // setup the "BUZZER1" side of the buzzer to stay low, while we play the tone on the other pin.
+  digitalWrite(BUZZER, LOW); // setup the "BUZZER" side of the buzzer to stay low, while we play the tone on the other pin.
 
   while(checkButton() == CHOICE_NONE) //Play song until you press a button
   {
     // iterate over the notes of the melody:
     for (int thisNote = 0; thisNote < 32; thisNote++) {
       changeLED();
-      tone(BUZZER2, melody[thisNote],noteDuration);
+      tone(BUZZER, melody[thisNote],noteDuration);
       // to distinguish the notes, set a minimum time between them.
       // the note's duration + 30% seems to work well:
       int pauseBetweenNotes = noteDuration * 1.30;
       delay(pauseBetweenNotes);
       // stop the tone playing:
-      noTone(BUZZER2);
+      noTone(BUZZER);
     }
   }
 }
