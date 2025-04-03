@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simon Says High Scores</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .score-board {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f8f8;
+            border-radius: 5px;
+        }
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        .score-item:last-child {
+            border-bottom: none;
+        }
+        .rank {
+            font-weight: bold;
+            color: #666;
+        }
+        .score {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .chart-container {
+            margin: 20px 0;
+            height: 300px;
+        }
+        .refresh-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .refresh-btn:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simon Says High Scores</h1>
+        
+        <div class="score-board" id="scoreBoard">
+            <!-- Scores will be loaded here -->
+        </div>
+
+        <div class="chart-container">
+            <canvas id="scoreChart"></canvas>
+        </div>
+
+        <button class="refresh-btn" onclick="loadScores()">Refresh Scores</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // ThingSpeak Channel ID dan API Key
+        const CHANNEL_ID = 'YOUR_CHANNEL_ID';
+        const API_KEY = 'YOUR_API_KEY';
+        
+        // Load scores when page loads
+        window.onload = loadScores;
+
+        function loadScores() {
+            fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?api_key=${API_KEY}&results=10`)
+                .then(response => response.json())
+                .then(data => {
+                    displayScores(data.feeds);
+                    updateChart(data.feeds);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function displayScores(scores) {
+            const scoreBoard = document.getElementById('scoreBoard');
+            scoreBoard.innerHTML = '';
+
+            scores.sort((a, b) => b.field1 - a.field1);
+
+            scores.forEach((score, index) => {
+                const scoreItem = document.createElement('div');
+                scoreItem.className = 'score-item';
+                scoreItem.innerHTML = `
+                    <span class="rank">#${index + 1}</span>
+                    <span class="score">${score.field1}</span>
+                    <span class="date">${new Date(score.created_at).toLocaleDateString()}</span>
+                `;
+                scoreBoard.appendChild(scoreItem);
+            });
+        }
+
+        function updateChart(scores) {
+            const ctx = document.getElementById('scoreChart').getContext('2d');
+            
+            // Destroy existing chart if it exists
+            if (window.scoreChart) {
+                window.scoreChart.destroy();
+            }
+
+            // Prepare data for chart
+            const labels = scores.map(score => 
+                new Date(score.created_at).toLocaleDateString()
+            ).reverse();
+            
+            const data = scores.map(score => score.field1).reverse();
+
+            // Create new chart
+            window.scoreChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Score',
+                        data: data,
+                        borderColor: '#2196F3',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html> 

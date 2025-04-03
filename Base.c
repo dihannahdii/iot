@@ -30,6 +30,11 @@
  */
 
 #include <Arduino.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <EEPROM.h>
+#include <ArduinoJson.h>
+#include <ThingSpeak.h>
 
 /*************************************************
 * Public Constants
@@ -159,6 +164,28 @@ byte gameMode = MODE_MEMORY;
 byte gameBoard[32];
 byte gameRound = 0;
 
+// WiFi credentials
+const char* ssid = "YOUR_WIFI_SSID";
+const char* password = "YOUR_WIFI_PASSWORD";
+
+// ThingSpeak credentials
+#define CHANNEL_ID 2903790  // Channel ID untuk Simon Says High Scores
+#define WRITE_API_KEY "4LZKTZ3KQR8GW4C5"  // Write API Key
+#define READ_API_KEY "78TO0HZQAU4N7UXJ"   // Read API Key
+#define FIELD_SCORE 1  // Field untuk menyimpan skor
+
+// Web server setup
+ESP8266WebServer server(80);
+
+// High score structure
+struct HighScore {
+  char name[16];
+  int score;
+};
+
+// Store top 5 scores
+HighScore highScores[5];
+
 void setup()
 {
   // Initialize Serial for debugging
@@ -192,10 +219,37 @@ void setup()
   }
 
   play_winner();
+
+  // Initialize EEPROM
+  EEPROM.begin(512);
+  
+  // Load high scores from EEPROM
+  loadHighScores();
+  
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // Initialize ThingSpeak
+  ThingSpeak.begin(client);
+
+  // Setup web server routes
+  server.on("/", handleRoot);
+  server.on("/scores", handleScores);
+  server.on("/submit", HTTP_POST, handleSubmit);
+  server.begin();
 }
 
 void loop()
 {
+  server.handleClient();
   attractMode(); // Blink lights while waiting for user to press a button
 
   // Indicate the start of game play
@@ -547,32 +601,101 @@ void changeLED(void)
   if(LEDnumber > 3) LEDnumber = 0; // Wrap the counter if needed
 }
 
-// Add this function to send score to server
+// Load high scores from EEPROM
+void loadHighScores() {
+  for(int i = 0; i < 5; i++) {
+    EEPROM.get(i * sizeof(HighScore), highScores[i]);
+  }
+}
+
+// Save high scores to EEPROM
+void saveHighScores() {
+  for(int i = 0; i < 5; i++) {
+    EEPROM.put(i * sizeof(HighScore), highScores[i]);
+  }
+  EEPROM.commit();
+}
+
+// Handle root page
+void handleRoot() {
+  String html = "<html><head><title>Simon Says High Scores</title>";
+  html += "<style>body{font-family:Arial;text-align:center;margin:20px;}";
+  html += "table{margin:0 auto;border-collapse:collapse;}";
+  html += "td,th{padding:10px;border:1px solid #ddd;}</style></head>";
+  html += "<body><h1>Simon Says High Scores</h1>";
+  html += "<table><tr><th>Rank</th><th>Name</th><th>Score</th></tr>";
+  
+  for(int i = 0; i < 5; i++) {
+    html += "<tr><td>" + String(i+1) + "</td>";
+    html += "<td>" + String(highScores[i].name) + "</td>";
+    html += "<td>" + String(highScores[i].score) + "</td></tr>";
+  }
+  
+  html += "</table></body></html>";
+  server.send(200, "text/html", html);
+}
+
+// Handle scores API endpoint
+void handleScores() {
+  StaticJsonDocument<512> doc;
+  JsonArray scores = doc.createNestedArray("scores");
+  
+  for(int i = 0; i < 5; i++) {
+    JsonObject score = scores.createNestedObject();
+    score["name"] = highScores[i].name;
+    score["score"] = highScores[i].score;
+  }
+  
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}
+
+// Handle score submission
+void handleSubmit() {
+  if(server.hasArg("plain")) {
+    StaticJsonDocument<200> doc;
+    DeserializationError error = deserializeJson(doc, server.arg("plain"));
+    
+    if(!error) {
+      const char* name = doc["name"];
+      int score = doc["score"];
+      
+      // Check if score is high enough
+      for(int i = 0; i < 5; i++) {
+        if(score > highScores[i].score) {
+          // Shift scores down
+          for(int j = 4; j > i; j--) {
+            highScores[j] = highScores[j-1];
+          }
+          // Insert new score
+          strcpy(highScores[i].name, name);
+          highScores[i].score = score;
+          saveHighScores();
+          break;
+        }
+      }
+      
+      server.send(200, "text/plain", "Score submitted");
+    } else {
+      server.send(400, "text/plain", "Invalid JSON");
+    }
+  } else {
+    server.send(400, "text/plain", "No data received");
+  }
+}
+
+// Modify the existing sendScore function to use ThingSpeak
 void sendScore(int score) {
   if (WiFi.status() == WL_CONNECTED) {
-    HTTPClient http;
-    WiFiClient client;
+    // Update ThingSpeak with the new score
+    int httpCode = ThingSpeak.writeField(CHANNEL_ID, FIELD_SCORE, score, WRITE_API_KEY);
     
-    http.begin(client, serverUrl);
-    http.addHeader("Content-Type", "application/json");
-    
-    StaticJsonDocument<200> doc;
-    doc["player_name"] = "Player";  // You can modify this to get player name
-    doc["score"] = score;
-    
-    String jsonString;
-    serializeJson(doc, jsonString);
-    
-    int httpResponseCode = http.POST(jsonString);
-    
-    if (httpResponseCode > 0) {
-      String response = http.getString();
-      Serial.println("Score sent successfully");
+    if (httpCode == 200) {
+      Serial.println("Score sent successfully to ThingSpeak");
     } else {
-      Serial.println("Error sending score");
+      Serial.println("Error sending score to ThingSpeak. HTTP code: " + String(httpCode));
     }
-    
-    http.end();
   }
 }
 
